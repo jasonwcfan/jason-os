@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Ban, RotateCcw } from "lucide-react";
 import type { Contact, ContactWithCompany } from "@/lib/types";
 import { INTERACTION_TYPES } from "@/lib/types";
 import {
@@ -9,7 +9,50 @@ import {
   createFollowUp,
   updateContact,
   deleteContact,
+  suppressContact,
+  unsuppressContact,
 } from "../../actions";
+
+// Suppress = never sync this person again (separate from deleting them).
+export function SuppressControl({
+  contactId,
+  suppressed,
+}: {
+  contactId: string;
+  suppressed: boolean;
+}) {
+  if (suppressed) {
+    return (
+      <form action={unsuppressContact}>
+        <input type="hidden" name="id" value={contactId} />
+        <button
+          type="submit"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted hover:bg-foreground/5"
+          title="Resume syncing this person"
+        >
+          <RotateCcw size={14} /> Unsuppress
+        </button>
+      </form>
+    );
+  }
+  return (
+    <form action={suppressContact}>
+      <input type="hidden" name="id" value={contactId} />
+      <button
+        type="submit"
+        onClick={(e) => {
+          if (!confirm("Suppress this person? They'll never be re-synced from email (their record stays).")) {
+            e.preventDefault();
+          }
+        }}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted hover:bg-foreground/5"
+        title="Never sync this person from email again"
+      >
+        <Ban size={14} /> Suppress
+      </button>
+    </form>
+  );
+}
 
 const inputCls =
   "rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent";

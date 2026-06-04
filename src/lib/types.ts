@@ -21,6 +21,7 @@ export type Contact = {
   company_id: string | null;
   linkedin_url: string | null;
   location: string | null;
+  alt_emails: string[];
   tags: string[];
   relationship_strength: number | null;
   how_we_met: string | null;

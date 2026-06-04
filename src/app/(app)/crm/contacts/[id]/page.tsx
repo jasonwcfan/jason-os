@@ -14,7 +14,12 @@ import type { ContactWithCompany, Interaction, FollowUp } from "@/lib/types";
 import { dateTime, relativeTime, shortDate, dueStatus } from "@/lib/format";
 import { Avatar, StrengthDots, TagChip } from "@/components/ui";
 import { completeFollowUp } from "../../actions";
-import { LogInteraction, AddFollowUp, EditAndDelete } from "./detail-forms";
+import {
+  LogInteraction,
+  AddFollowUp,
+  EditAndDelete,
+  SuppressControl,
+} from "./detail-forms";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +57,15 @@ export default async function ContactPage({
   const interactions = (interactionsData ?? []) as Interaction[];
   const followUps = (followUpsData ?? []) as FollowUp[];
 
+  // Is any of this person's addresses on the suppression list?
+  const emails = [c.email, ...(c.alt_emails ?? [])]
+    .filter(Boolean)
+    .map((e) => (e as string).toLowerCase());
+  const { data: supRows } = emails.length
+    ? await sb.from("crm_suppressed").select("email").in("email", emails)
+    : { data: [] };
+  const suppressed = (supRows ?? []).length > 0;
+
   return (
     <div className="mx-auto max-w-3xl px-8 py-6">
       <Link
@@ -68,6 +82,11 @@ export default async function ContactPage({
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">{c.name}</h1>
             <StrengthDots value={c.relationship_strength} />
+            {suppressed && (
+              <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600">
+                Suppressed
+              </span>
+            )}
           </div>
           <p className="text-muted">
             {[c.title, c.company?.name].filter(Boolean).join(" · ") || "—"}
@@ -78,7 +97,10 @@ export default async function ContactPage({
             ))}
           </div>
         </div>
-        <EditAndDelete contact={c} />
+        <div className="flex shrink-0 gap-2">
+          <SuppressControl contactId={c.id} suppressed={suppressed} />
+          <EditAndDelete contact={c} />
+        </div>
       </div>
 
       {/* contact methods */}
@@ -88,6 +110,11 @@ export default async function ContactPage({
             <Mail size={14} /> {c.email}
           </a>
         )}
+        {(c.alt_emails ?? []).map((e) => (
+          <a key={e} href={`mailto:${e}`} className="inline-flex items-center gap-1.5 hover:text-foreground" title="Alternate email">
+            <Mail size={14} className="opacity-50" /> {e}
+          </a>
+        ))}
         {c.phone && (
           <span className="inline-flex items-center gap-1.5">
             <Phone size={14} /> {c.phone}

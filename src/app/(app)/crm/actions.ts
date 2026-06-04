@@ -101,6 +101,56 @@ export async function deleteContact(formData: FormData) {
   redirect("/crm");
 }
 
+// Suppression is separate from deletion: a suppressed email is permanently
+// excluded from the nightly sync (never re-created, never updated). We
+// suppress every address tied to the contact (primary + alt_emails).
+export async function suppressContact(formData: FormData) {
+  const id = str(formData.get("id"));
+  if (!id) return;
+  const sb = getSupabase();
+
+  const { data: c } = await sb
+    .from("crm_contacts")
+    .select("email, alt_emails")
+    .eq("id", id)
+    .maybeSingle();
+
+  const emails = [c?.email, ...((c?.alt_emails as string[]) ?? [])]
+    .filter(Boolean)
+    .map((e) => String(e).toLowerCase());
+  if (emails.length) {
+    await sb
+      .from("crm_suppressed")
+      .upsert(
+        emails.map((email) => ({ email, reason: "Suppressed from contact page" })),
+        { onConflict: "email" },
+      );
+  }
+  revalidatePath(`/crm/contacts/${id}`);
+  revalidatePath("/crm");
+}
+
+export async function unsuppressContact(formData: FormData) {
+  const id = str(formData.get("id"));
+  if (!id) return;
+  const sb = getSupabase();
+
+  const { data: c } = await sb
+    .from("crm_contacts")
+    .select("email, alt_emails")
+    .eq("id", id)
+    .maybeSingle();
+
+  const emails = [c?.email, ...((c?.alt_emails as string[]) ?? [])]
+    .filter(Boolean)
+    .map((e) => String(e).toLowerCase());
+  if (emails.length) {
+    await sb.from("crm_suppressed").delete().in("email", emails);
+  }
+  revalidatePath(`/crm/contacts/${id}`);
+  revalidatePath("/crm");
+}
+
 export async function logInteraction(formData: FormData) {
   const contact_id = str(formData.get("contact_id"));
   if (!contact_id) return;
