@@ -28,7 +28,7 @@ export const MODULES: ModuleDef[] = [
     label: "Tasks",
     href: "/tasks",
     icon: CheckSquare,
-    enabled: false,
+    enabled: true,
     description: "Task & project management",
   },
   {

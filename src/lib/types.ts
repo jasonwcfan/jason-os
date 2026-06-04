@@ -75,3 +75,42 @@ export type FollowUp = {
 export type FollowUpWithContact = FollowUp & {
   contact: Pick<Contact, "id" | "name"> | null;
 };
+
+// ---- Tasks module ----
+
+export const TASK_LANES = ["now", "next", "later", "someday"] as const;
+export type TaskLane = (typeof TASK_LANES)[number];
+
+export const LANE_META: Record<
+  TaskLane,
+  { label: string; emoji: string; blurb: string }
+> = {
+  now: { label: "Now", emoji: "🔴", blurb: "Today — max 5" },
+  next: { label: "Next", emoji: "🟡", blurb: "This week" },
+  later: { label: "Later", emoji: "⚪", blurb: "Backlog" },
+  someday: { label: "Someday", emoji: "💤", blurb: "Maybe / optional" },
+};
+
+export type TaskStatus = "open" | "done" | "archived" | "cancelled";
+
+export type Task = {
+  id: string;
+  title: string;
+  details: string | null;
+  status: TaskStatus;
+  priority: TaskLane;
+  due_date: string | null;
+  contact_id: string | null;
+  created_by: "me" | "agent";
+  origin: string;
+  origin_detail: string | null;
+  priority_reason: string | null;
+  groomed_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TaskWithContact = Task & {
+  contact: Pick<Contact, "id" | "name"> | null;
+};
