@@ -6,7 +6,13 @@ import { AUTH_COOKIE, isValidToken } from "@/lib/auth";
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/login")) {
+  // /api/cron/* is machine-triggered (Vercel Cron) and guards itself with
+  // CRON_SECRET — keep it out of the password gate.
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/login") ||
+    pathname.startsWith("/api/cron")
+  ) {
     return NextResponse.next();
   }
 
