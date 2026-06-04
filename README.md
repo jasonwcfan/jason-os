@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# jason.os
 
-## Getting Started
+A personal operating system. CRM is module #1; tasks, planning, and
+self-feedback modules come next. Built to be driven primarily by talking
+to Claude, with a lightweight web UI as a window onto the same data.
 
-First, run the development server:
+Live at **crm.jason.fan** (CRM module).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack
+
+- **Next.js 16** (App Router, React 19, Tailwind v4) on **Vercel**
+- **Supabase Postgres** for data
+- Single-user **password gate** (signed cookie via edge proxy) — no auth provider
+
+## Architecture
+
+```
+You (any device) ──talk──► Claude ──(Supabase MCP)──► Postgres ◄── Next.js UI (Vercel)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Claude reads/writes the database directly through the Supabase MCP server.
+The web app is a thin server-rendered view over the same tables, using the
+service-role key **server-side only** (it bypasses RLS; RLS denies everyone
+else).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Module convention
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Every module namespaces its tables with a prefix in the `public` schema:
+`crm_*` today, `tasks_*` / `planning_*` / `feedback_*` later. The sidebar is
+generated from `src/lib/modules.ts` — add an entry + a route group under
+`src/app/(app)/` to ship a new module.
 
-## Learn More
+### Integration-ready
 
-To learn more about Next.js, take a look at the following resources:
+Every record carries `source` (default `'manual'`) and `external_id` with a
+`unique (source, external_id)` constraint, so future inbound syncs
+(Amplemarket, Granola, Slack, …) can upsert and dedupe cleanly into the same
+tables.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## CRM data model (`crm_*`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `crm_companies` — name, domain, notes
+- `crm_contacts` — person + `company_id`, tags[], relationship strength,
+  how you met, `last_interaction_at` (auto-maintained by trigger)
+- `crm_interactions` — typed activity timeline (call/email/meeting/coffee/…)
+- `crm_follow_ups` — due-dated reminders, pending/done
 
-## Deploy on Vercel
+## Local development
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+cp .env.example .env.local   # fill in the values
+npm install
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Required env vars (see `.env.example`):
+
+| Var | What |
+| --- | --- |
+| `SUPABASE_URL` | Project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key (server-only) |
+| `APP_PASSWORD` | The password to unlock the app |
+| `AUTH_SECRET` | Random 32-byte hex; signs the auth cookie |
+
+## Driving it by talking to Claude
+
+Claude has direct database access, so you can just say things like:
+
+- "Add Sarah Chen, VP Eng at Acme, met at the SaaS dinner, tag her investor-intro."
+- "Log that I had coffee with Alex today; remind me to follow up in 3 weeks."
+- "Who haven't I talked to in 60+ days?"
+- "What follow-ups are overdue?"
