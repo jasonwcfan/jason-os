@@ -23,7 +23,7 @@ All data lives in **Supabase project `frjqwrerxeeuvuqdetve`**. Operate it with t
 - **crm_contacts**(id, name, email, phone, title, company_id→crm_companies, linkedin_url, location, **alt_emails** text[], **tags** text[], **relationship_strength** 1–5, how_we_met, notes, source, external_id, **last_interaction_at** [auto]) — `unique(source, external_id)`. NOTE: contacts have no `created_by` (that's tasks-only).
 - **crm_interactions**(id, contact_id→crm_contacts, **type** [call/email/meeting/coffee/intro/message/note], occurred_at, summary, notes, source, external_id) — `unique(source, external_id)`. Inserting a row **auto-updates** the contact's `last_interaction_at`.
 - **crm_suppressed**(email PK, reason) — permanently excluded from sync.
-- **tasks_items**(id, title, details, **status** [open/done/archived/cancelled], **priority** [now/next/later/someday], due_date, contact_id→crm_contacts, **created_by** [me/agent], **origin** [manual/conversation/email-routine/granola/groomer/…], origin_detail, external_id, **priority_reason**, groomed_at, completed_at, **completion_note**) — `unique(origin, external_id)`.
+- **tasks_items**(id, title, details, **status** [open/done/archived/cancelled], **priority** [now/next/later/someday], due_date, contact_id→crm_contacts, **created_by** [me/agent], **origin** [manual/conversation/email-routine/granola/groomer/…], origin_detail, external_id, **priority_reason**, groomed_at, completed_at, **completion_note**, **agent_status** [assigned/running/done/failed | null], **agent_instructions**, **agent_result**, assigned_at, agent_finished_at) — `unique(origin, external_id)`.
 - Infra: `granola_queue` (meeting capture), `crm_sync_state` (sync watermarks). **`crm_follow_ups` is RETIRED** — everything actionable is a task.
 
 ## Cookbook (ready SQL — double single-quotes to escape)
@@ -84,6 +84,14 @@ update tasks_items set status='done',completed_at=now(),completion_note='She dec
 update tasks_items set priority='now',priority_reason='Due tomorrow; blocks PayPal POC' where id='<id>';
 ```
 
+**Assign a task to an agent, or check assignment results**
+```sql
+-- assign (the agent-dispatcher picks it up within ~15 min and runs it):
+update tasks_items set agent_status='assigned', agent_instructions='<exactly what to do + what done looks like>', assigned_at=now() where id='<id>';
+-- review what agents did:
+select title, agent_status, agent_result from tasks_items where agent_status is not null order by assigned_at desc;
+```
+
 **Suppress someone (never sync again)**
 ```sql
 insert into crm_suppressed (email,reason) values ('recruiter@x.com','vendor, not a lead') on conflict (email) do nothing;
@@ -101,6 +109,7 @@ where id='<canonical contact id>';
 - **granola-processor** (every 2h): Granola meeting transcripts → CRM meeting-interactions + tasks. Classifies sales/customer vs internal vs hiring vs investor.
 - **task-backlog-groomer** (~7:38am daily): de-dupes, archives stale, cancels dead, escalates, enforces the Now≤5 cap, writes `priority_reason`, and emits Jason's morning digest.
 - **Vercel cron** captures Granola meetings into `granola_queue` every 30 min.
+- **agent-dispatcher** (every 15 min): runs tasks Jason assigned to an agent (`agent_status='assigned'` + `agent_instructions`) and writes `agent_result` + status back. Runs in the always-on managed runtime (works even with his laptop closed).
 
 So new leads, logged meetings, and action items appear on their own. **Your role is the human-in-the-loop layer**: answering Jason's questions, capturing what he tells you, curating priorities, and surfacing what matters.
 
