@@ -65,41 +65,23 @@ export async function GET(
   const today = new Date().toISOString().slice(0, 10);
   const now = stamp(new Date());
 
-  const [{ data: tasks }, { data: followUps }] = await Promise.all([
-    sb
-      .from("tasks_items")
-      .select("id,title,details,due_date,priority")
-      .eq("status", "open")
-      .not("due_date", "is", null)
-      .gte("due_date", today),
-    sb
-      .from("crm_follow_ups")
-      .select("id,note,due_date,contact:crm_contacts(name)")
-      .eq("status", "pending")
-      .not("due_date", "is", null)
-      .gte("due_date", today),
-  ]);
+  const { data: tasks } = await sb
+    .from("tasks_items")
+    .select("id,title,details,due_date,priority,contact:crm_contacts(name)")
+    .eq("status", "open")
+    .not("due_date", "is", null)
+    .gte("due_date", today);
 
   const events: string[] = [];
 
   for (const t of tasks ?? []) {
+    const contact = (t.contact as { name?: string } | null)?.name;
     events.push(
       vevent({
         uid: `task-${t.id}@jason.os`,
         date: t.due_date as string,
-        summary: `✅ ${t.title}`,
+        summary: `✅ ${t.title}${contact ? ` — ${contact}` : ""}`,
         description: (t.details as string) ?? undefined,
-        dtstamp: now,
-      }),
-    );
-  }
-  for (const f of followUps ?? []) {
-    const contact = (f.contact as { name?: string } | null)?.name;
-    events.push(
-      vevent({
-        uid: `followup-${f.id}@jason.os`,
-        date: f.due_date as string,
-        summary: `🤝 ${(f.note as string) ?? "Follow up"}${contact ? ` — ${contact}` : ""}`,
         dtstamp: now,
       }),
     );

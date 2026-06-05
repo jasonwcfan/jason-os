@@ -10,13 +10,13 @@ import {
   Clock,
 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
-import type { ContactWithCompany, Interaction, FollowUp } from "@/lib/types";
+import type { ContactWithCompany, Interaction, Task } from "@/lib/types";
 import { dateTime, relativeTime, shortDate, dueStatus } from "@/lib/format";
 import { Avatar, StrengthDots, TagChip } from "@/components/ui";
-import { completeFollowUp } from "../../actions";
+import { completeContactTask } from "../../actions";
 import {
   LogInteraction,
-  AddFollowUp,
+  AddContactTask,
   EditAndDelete,
   SuppressControl,
 } from "./detail-forms";
@@ -40,22 +40,23 @@ export default async function ContactPage({
   if (!contact) notFound();
   const c = contact as ContactWithCompany;
 
-  const [{ data: interactionsData }, { data: followUpsData }] = await Promise.all([
+  const [{ data: interactionsData }, { data: tasksData }] = await Promise.all([
     sb
       .from("crm_interactions")
       .select("*")
       .eq("contact_id", id)
       .order("occurred_at", { ascending: false }),
     sb
-      .from("crm_follow_ups")
+      .from("tasks_items")
       .select("*")
       .eq("contact_id", id)
-      .order("status", { ascending: true })
-      .order("due_date", { ascending: true }),
+      .eq("status", "open")
+      .order("due_date", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true }),
   ]);
 
   const interactions = (interactionsData ?? []) as Interaction[];
-  const followUps = (followUpsData ?? []) as FollowUp[];
+  const tasks = (tasksData ?? []) as Task[];
 
   // Is any of this person's addresses on the suppression list?
   const emails = [c.email, ...(c.alt_emails ?? [])]
@@ -149,33 +150,32 @@ export default async function ContactPage({
         </div>
       )}
 
-      {/* follow-ups */}
+      {/* tasks */}
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          Follow-ups
+          Tasks
         </h2>
         <div className="space-y-2">
-          {followUps
-            .filter((f) => f.status === "pending")
-            .map((f) => {
-              const status = dueStatus(f.due_date);
-              return (
-                <div
-                  key={f.id}
-                  className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                >
-                  <form action={completeFollowUp}>
-                    <input type="hidden" name="id" value={f.id} />
-                    <input type="hidden" name="contact_id" value={c.id} />
-                    <button
-                      type="submit"
-                      title="Mark done"
-                      className="flex text-muted hover:text-accent"
-                    >
-                      <CheckCircle2 size={18} />
-                    </button>
-                  </form>
-                  <span className="flex-1">{f.note ?? "Follow up"}</span>
+          {tasks.map((t) => {
+            const status = t.due_date ? dueStatus(t.due_date) : null;
+            return (
+              <div
+                key={t.id}
+                className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+              >
+                <form action={completeContactTask}>
+                  <input type="hidden" name="id" value={t.id} />
+                  <input type="hidden" name="contact_id" value={c.id} />
+                  <button
+                    type="submit"
+                    title="Mark done"
+                    className="flex text-muted hover:text-accent"
+                  >
+                    <CheckCircle2 size={18} />
+                  </button>
+                </form>
+                <span className="flex-1">{t.title}</span>
+                {t.due_date && (
                   <span
                     className={`inline-flex items-center gap-1 text-xs ${
                       status === "overdue"
@@ -185,12 +185,13 @@ export default async function ContactPage({
                           : "text-muted"
                     }`}
                   >
-                    <Clock size={12} /> {shortDate(f.due_date)}
+                    <Clock size={12} /> {shortDate(t.due_date)}
                   </span>
-                </div>
-              );
-            })}
-          <AddFollowUp contactId={c.id} />
+                )}
+              </div>
+            );
+          })}
+          <AddContactTask contactId={c.id} />
         </div>
       </section>
 

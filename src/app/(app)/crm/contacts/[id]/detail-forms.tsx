@@ -6,7 +6,7 @@ import type { Contact, ContactWithCompany } from "@/lib/types";
 import { INTERACTION_TYPES } from "@/lib/types";
 import {
   logInteraction,
-  createFollowUp,
+  createContactTask,
   updateContact,
   deleteContact,
   suppressContact,
@@ -116,19 +116,20 @@ export function LogInteraction({ contactId }: { contactId: string }) {
   );
 }
 
-export function AddFollowUp({ contactId }: { contactId: string }) {
+export function AddContactTask({ contactId }: { contactId: string }) {
   return (
     <form
-      action={createFollowUp}
+      action={createContactTask}
       className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border p-3"
     >
       <input type="hidden" name="contact_id" value={contactId} />
-      <input type="date" name="due_date" required className={inputCls} />
       <input
-        name="note"
-        placeholder="Follow-up note"
+        name="title"
+        placeholder="Add a task for this contact"
+        required
         className={`${inputCls} min-w-0 flex-1`}
       />
+      <input type="date" name="due_date" className={inputCls} />
       <button
         type="submit"
         className="rounded-lg bg-foreground/10 px-3 py-2 text-sm font-medium hover:bg-foreground/15"
