@@ -492,6 +492,7 @@ function AgentChip({ task }: { task: TaskWithContact }) {
   const styles: Record<string, string> = {
     assigned: "bg-blue-500/15 text-blue-600",
     running: "bg-amber-500/15 text-amber-600",
+    review: "bg-indigo-500/15 text-indigo-600",
     done: "bg-green-500/15 text-green-600",
     failed: "bg-red-500/15 text-red-600",
   };
@@ -500,7 +501,7 @@ function AgentChip({ task }: { task: TaskWithContact }) {
       title={task.agent_result ?? undefined}
       className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${styles[s]}`}
     >
-      <Bot size={10} /> {s}
+      <Bot size={10} /> {s === "review" ? "review me" : s}
     </span>
   );
 }
@@ -512,6 +513,16 @@ function AssignRow({
   task: TaskWithContact;
   onClose: () => void;
 }) {
+  const returned = task.agent_status === "review" || task.agent_status === "failed";
+  const header =
+    task.agent_status === "review"
+      ? "Agent finished a turn — your review"
+      : task.agent_status === "failed"
+        ? "Agent couldn't finish"
+        : task.agent_status
+          ? "Agent assignment"
+          : "Assign to an agent";
+
   return (
     <li className="px-3 py-3">
       <form
@@ -524,27 +535,47 @@ function AssignRow({
         <input type="hidden" name="id" value={task.id} />
         <div className="flex items-center gap-2 text-sm font-medium">
           <Bot size={15} className="text-accent" />
-          Assign to an agent
+          {header}
         </div>
+
+        {task.agent_result && (
+          <div className="rounded-lg border border-border bg-background p-2.5 text-xs">
+            <div className="mb-0.5 font-medium text-foreground">
+              {returned ? "What the agent did" : "Last result"}
+            </div>
+            <p className="whitespace-pre-wrap text-muted">{task.agent_result}</p>
+            {task.agent_log_url && (
+              <a
+                href={task.agent_log_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-block text-accent hover:underline"
+              >
+                View full log ↗
+              </a>
+            )}
+          </div>
+        )}
+
         <textarea
           name="agent_instructions"
-          defaultValue={task.agent_instructions ?? ""}
+          defaultValue={returned ? "" : (task.agent_instructions ?? "")}
           rows={3}
           autoFocus
           required
-          placeholder="Specific instructions — what to do, any constraints, and what 'done' looks like…"
+          placeholder={
+            returned
+              ? "Send it back with feedback or the next step… (or approve and mark done)"
+              : "Specific instructions — what to do, and what 'done' looks like. Say if you only want pre-work then it back to you."
+          }
           className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-accent"
         />
-        {task.agent_result && (
-          <div className="rounded-lg border border-border bg-background p-2 text-xs text-muted">
-            <span className="font-medium text-foreground">Last result: </span>
-            {task.agent_result}
-          </div>
-        )}
+
         <div className="flex items-center gap-2">
           {task.agent_status && (
             <button
               type="submit"
+              formNoValidate
               formAction={async (fd) => {
                 await unassignTask(fd);
                 onClose();
@@ -562,11 +593,24 @@ function AssignRow({
             >
               Cancel
             </button>
+            {returned && (
+              <button
+                type="submit"
+                formNoValidate
+                formAction={async (fd) => {
+                  await completeTask(fd);
+                  onClose();
+                }}
+                className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+              >
+                Approve &amp; done
+              </button>
+            )}
             <button
               type="submit"
               className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:opacity-90"
             >
-              <Bot size={13} /> Assign to agent
+              <Bot size={13} /> {returned ? "Send back to agent" : "Assign to agent"}
             </button>
           </div>
         </div>
