@@ -34,8 +34,10 @@ export async function GET(req: Request) {
       .select("last_synced_at")
       .eq("source", "granola")
       .maybeSingle();
-    const since =
+    // Granola rejects the +00:00 offset Postgres emits — normalize to ...Z
+    const sinceRaw =
       ws?.last_synced_at ?? new Date(Date.now() - 14 * 864e5).toISOString();
+    const since = new Date(sinceRaw).toISOString();
 
     // 2) list all notes updated after the watermark (paginate)
     const summaries: NoteSummary[] = [];
