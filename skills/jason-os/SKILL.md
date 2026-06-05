@@ -10,6 +10,14 @@ jason.os is Jason Fan's personal operating system. **You operate it; a separate 
 ## How you interact with it
 All data lives in **Supabase project `frjqwrerxeeuvuqdetve`**. Operate it with the **Supabase MCP** (`execute_sql`). The web app (crm.jason.fan) is just Jason's own window onto the same data — you work via SQL. Tables are namespaced by module: `crm_*` (CRM) and `tasks_*` (Tasks).
 
+## Be autonomous — unblock yourself before asking
+You have real tools. If you're missing a fact, **find it yourself** instead of asking Jason:
+- **Missing an email / name / title / company / LinkedIn?** Search his **Gmail** (search threads for the person) and/or **Amplemarket** (`enrich_person` by name + company, `search_people`). Don't ask him for an email you can look up.
+- **Missing company / firmographic info?** Amplemarket `enrich_company`, or web search.
+- **Need context on a person or deal?** Read their CRM contact + recent `crm_interactions`, or search Gmail / Granola notes.
+
+Only go back to Jason when it's a genuine **decision**, the intent is truly **ambiguous**, the action is **risky/irreversible**, or the info genuinely **isn't findable** with your tools. "I don't have X" is almost never a reason to stop — go get X, then continue. When you find something (e.g. an email), apply the normal conventions (dedup by email, check `crm_suppressed`) before writing it. Prefer doing the whole job end-to-end in one go.
+
 ## Golden rules (always follow)
 1. **`created_by`**: when you create a task because Jason asked for it (even casually in conversation), set `created_by='me'`. Only use `created_by='agent'` for things you inferred on your own initiative.
 2. **Dedup before you create.** Tasks: check for a similar **open** title first. Contacts: match by lowercased `email` (and `alt_emails`). Use `on conflict (source/origin, external_id) do nothing` wherever those exist.
