@@ -9,6 +9,7 @@ import {
   Clock,
   User2,
   Archive,
+  RotateCcw,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -25,11 +26,25 @@ import {
   completeTask,
   setPriority,
   archiveTask,
+  reopenTask,
 } from "./actions";
 
 const NOW_CAP = 5;
 
-export function TaskBoard({ tasks }: { tasks: TaskWithContact[] }) {
+const VIEW_TABS = [
+  { key: "open", label: "Open" },
+  { key: "done", label: "Done" },
+  { key: "cancelled", label: "Cancelled" },
+  { key: "archived", label: "Archived" },
+] as const;
+
+export function TaskBoard({
+  tasks,
+  view,
+}: {
+  tasks: TaskWithContact[];
+  view: string;
+}) {
   const [adding, setAdding] = useState(false);
   const [showLater, setShowLater] = useState(false);
   const [showSomeday, setShowSomeday] = useState(false);
@@ -45,51 +60,132 @@ export function TaskBoard({ tasks }: { tasks: TaskWithContact[] }) {
     return g;
   }, [tasks]);
 
+  const subtitle =
+    view === "open" ? `${tasks.length} open` : `${tasks.length} ${view}`;
+
   return (
     <div>
       <PageHeader
         title="Tasks"
-        subtitle={`${tasks.length} open`}
+        subtitle={subtitle}
         action={
-          <button
-            onClick={() => setAdding((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
-          >
-            <Plus size={16} /> Add task
-          </button>
+          view === "open" ? (
+            <button
+              onClick={() => setAdding((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
+            >
+              <Plus size={16} /> Add task
+            </button>
+          ) : undefined
         }
       />
 
       <div className="mx-auto max-w-3xl px-8 py-5">
-        {adding && <QuickAdd onClose={() => setAdding(false)} />}
+        <FilterBar view={view} />
 
-        <Lane
-          lane="now"
-          tasks={byLane.now}
-          overCap={byLane.now.length > NOW_CAP}
-        />
-        <Lane lane="next" tasks={byLane.next} />
-
-        <Collapsed
-          lane="later"
-          tasks={byLane.later}
-          open={showLater}
-          toggle={() => setShowLater((v) => !v)}
-        />
-        <Collapsed
-          lane="someday"
-          tasks={byLane.someday}
-          open={showSomeday}
-          toggle={() => setShowSomeday((v) => !v)}
-        />
-
-        {tasks.length === 0 && (
-          <p className="py-16 text-center text-sm text-muted">
-            Nothing on your plate. Add a task, or just tell Claude.
-          </p>
+        {view === "open" ? (
+          <>
+            {adding && <QuickAdd onClose={() => setAdding(false)} />}
+            <Lane lane="now" tasks={byLane.now} overCap={byLane.now.length > NOW_CAP} />
+            <Lane lane="next" tasks={byLane.next} />
+            <Collapsed
+              lane="later"
+              tasks={byLane.later}
+              open={showLater}
+              toggle={() => setShowLater((v) => !v)}
+            />
+            <Collapsed
+              lane="someday"
+              tasks={byLane.someday}
+              open={showSomeday}
+              toggle={() => setShowSomeday((v) => !v)}
+            />
+            {tasks.length === 0 && (
+              <p className="py-16 text-center text-sm text-muted">
+                Nothing on your plate. Add a task, or just tell Claude.
+              </p>
+            )}
+          </>
+        ) : (
+          <FlatList tasks={tasks} view={view} />
         )}
       </div>
     </div>
+  );
+}
+
+function FilterBar({ view }: { view: string }) {
+  return (
+    <div className="mb-5 flex gap-1">
+      {VIEW_TABS.map((t) => (
+        <Link
+          key={t.key}
+          href={`/tasks?view=${t.key}`}
+          className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+            view === t.key
+              ? "bg-accent text-accent-fg font-medium"
+              : "text-muted hover:bg-foreground/5"
+          }`}
+        >
+          {t.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function FlatList({ tasks, view }: { tasks: TaskWithContact[]; view: string }) {
+  if (tasks.length === 0) {
+    return (
+      <p className="py-16 text-center text-sm text-muted">No {view} tasks.</p>
+    );
+  }
+  return (
+    <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+      {tasks.map((t) => (
+        <li key={t.id} className="flex items-center gap-3 px-3 py-2.5">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-sm ${view === "done" ? "text-muted line-through" : ""}`}
+              >
+                {t.title}
+              </span>
+              <span className="text-xs" title={LANE_META[t.priority].label}>
+                {LANE_META[t.priority].emoji}
+              </span>
+              {t.created_by === "agent" && (
+                <Sparkles size={12} className="text-accent" />
+              )}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted">
+              {t.contact && (
+                <Link
+                  href={`/crm/contacts/${t.contact.id}`}
+                  className="inline-flex items-center gap-1 hover:text-accent"
+                >
+                  <User2 size={11} /> {t.contact.name}
+                </Link>
+              )}
+              <span>
+                {view === "done" && t.completed_at
+                  ? `done ${shortDate(t.completed_at)}`
+                  : shortDate(t.updated_at)}
+              </span>
+            </div>
+          </div>
+          <form action={reopenTask}>
+            <input type="hidden" name="id" value={t.id} />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-muted hover:bg-foreground/5"
+            >
+              <RotateCcw size={12} /> Reopen
+            </button>
+          </form>
+        </li>
+      ))}
+    </ul>
   );
 }
 

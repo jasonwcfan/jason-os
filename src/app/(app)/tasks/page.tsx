@@ -4,14 +4,31 @@ import type { TaskWithContact } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function TasksPage() {
+const VIEWS = ["open", "done", "cancelled", "archived"] as const;
+
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
+  const { view: raw } = await searchParams;
+  const view = (VIEWS as readonly string[]).includes(raw ?? "")
+    ? (raw as (typeof VIEWS)[number])
+    : "open";
+
   const sb = getSupabase();
-  const { data } = await sb
+  let query = sb
     .from("tasks_items")
     .select("*, contact:crm_contacts(id,name)")
-    .eq("status", "open")
-    .order("due_date", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: true });
+    .eq("status", view);
 
-  return <TaskBoard tasks={(data ?? []) as TaskWithContact[]} />;
+  query =
+    view === "open"
+      ? query
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: true })
+      : query.order("updated_at", { ascending: false });
+
+  const { data } = await query;
+  return <TaskBoard tasks={(data ?? []) as TaskWithContact[]} view={view} />;
 }
