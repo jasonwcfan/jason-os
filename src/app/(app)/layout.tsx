@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/sidebar";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 
 export default function AppLayout({
   children,
@@ -7,6 +8,7 @@ export default function AppLayout({
 }) {
   return (
     <div className="flex min-h-screen">
+      <RealtimeRefresh />
       <Sidebar />
       <main className="flex-1 overflow-x-hidden">{children}</main>
     </div>
