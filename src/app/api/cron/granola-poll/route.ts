@@ -73,7 +73,10 @@ export async function GET(req: Request) {
         .maybeSingle();
       if (exists) continue;
 
-      const r = await fetch(`${GRANOLA}/notes/${s.id}`, { headers });
+      // include=transcript is required — the field is null without it
+      const r = await fetch(`${GRANOLA}/notes/${s.id}?include=transcript`, {
+        headers,
+      });
       if (!r.ok) continue; // 404 = note not summarized yet; will reappear later
       const n = await r.json();
       const ce = n.calendar_event ?? {};
