@@ -78,6 +78,35 @@ export async function archiveTask(formData: FormData) {
   revalidatePath("/tasks");
 }
 
+// Assign a task to an autonomous agent. A dispatcher picks up 'assigned'
+// rows and runs them with these instructions, writing status/result back.
+export async function assignTask(formData: FormData) {
+  const id = str(formData.get("id"));
+  const instructions = str(formData.get("agent_instructions"));
+  if (!id || !instructions) return;
+  await getSupabase()
+    .from("tasks_items")
+    .update({
+      agent_status: "assigned",
+      agent_instructions: instructions,
+      agent_result: null,
+      assigned_at: new Date().toISOString(),
+      agent_finished_at: null,
+    })
+    .eq("id", id);
+  revalidatePath("/tasks");
+}
+
+export async function unassignTask(formData: FormData) {
+  const id = str(formData.get("id"));
+  if (!id) return;
+  await getSupabase()
+    .from("tasks_items")
+    .update({ agent_status: null, agent_finished_at: null })
+    .eq("id", id);
+  revalidatePath("/tasks");
+}
+
 export async function updateTask(formData: FormData) {
   const id = str(formData.get("id"));
   if (!id) return;

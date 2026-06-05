@@ -108,6 +108,11 @@ export type Task = {
   groomed_at: string | null;
   completed_at: string | null;
   completion_note: string | null;
+  agent_status: "assigned" | "running" | "done" | "failed" | null;
+  agent_instructions: string | null;
+  agent_result: string | null;
+  assigned_at: string | null;
+  agent_finished_at: string | null;
   created_at: string;
   updated_at: string;
 };

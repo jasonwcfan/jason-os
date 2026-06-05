@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Plus,
   Pencil,
+  Bot,
   Sparkles,
   Clock,
   User2,
@@ -30,6 +31,8 @@ import {
   archiveTask,
   reopenTask,
   updateTask,
+  assignTask,
+  unassignTask,
 } from "./actions";
 
 const NOW_CAP = 5;
@@ -277,12 +280,16 @@ function Collapsed({
 }
 
 function TaskRow({ task }: { task: TaskWithContact }) {
-  const [mode, setMode] = useState<"view" | "completing" | "editing">("view");
+  const [mode, setMode] = useState<
+    "view" | "completing" | "editing" | "assigning"
+  >("view");
 
   if (mode === "completing")
     return <CompletingRow task={task} onUndo={() => setMode("view")} />;
   if (mode === "editing")
     return <EditRow task={task} onClose={() => setMode("view")} />;
+  if (mode === "assigning")
+    return <AssignRow task={task} onClose={() => setMode("view")} />;
 
   const ds = task.due_date ? dueStatus(task.due_date) : null;
   return (
@@ -307,6 +314,7 @@ function TaskRow({ task }: { task: TaskWithContact }) {
               <Sparkles size={12} />
             </span>
           )}
+          {task.agent_status && <AgentChip task={task} />}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
           {task.due_date && (
@@ -338,6 +346,16 @@ function TaskRow({ task }: { task: TaskWithContact }) {
 
       <LaneSelect task={task} />
 
+      <button
+        type="button"
+        onClick={() => setMode("assigning")}
+        title={task.agent_status ? "Agent assignment" : "Assign to an agent"}
+        className={`flex pt-0.5 transition-colors hover:text-foreground ${
+          task.agent_status ? "text-accent" : "text-muted/60"
+        }`}
+      >
+        <Bot size={15} />
+      </button>
       <button
         type="button"
         onClick={() => setMode("editing")}
@@ -461,6 +479,94 @@ function EditRow({
               className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:opacity-90"
             >
               Save
+            </button>
+          </div>
+        </div>
+      </form>
+    </li>
+  );
+}
+
+function AgentChip({ task }: { task: TaskWithContact }) {
+  const s = task.agent_status!;
+  const styles: Record<string, string> = {
+    assigned: "bg-blue-500/15 text-blue-600",
+    running: "bg-amber-500/15 text-amber-600",
+    done: "bg-green-500/15 text-green-600",
+    failed: "bg-red-500/15 text-red-600",
+  };
+  return (
+    <span
+      title={task.agent_result ?? undefined}
+      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${styles[s]}`}
+    >
+      <Bot size={10} /> {s}
+    </span>
+  );
+}
+
+function AssignRow({
+  task,
+  onClose,
+}: {
+  task: TaskWithContact;
+  onClose: () => void;
+}) {
+  return (
+    <li className="px-3 py-3">
+      <form
+        action={async (fd) => {
+          await assignTask(fd);
+          onClose();
+        }}
+        className="flex flex-col gap-2"
+      >
+        <input type="hidden" name="id" value={task.id} />
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Bot size={15} className="text-accent" />
+          Assign to an agent
+        </div>
+        <textarea
+          name="agent_instructions"
+          defaultValue={task.agent_instructions ?? ""}
+          rows={3}
+          autoFocus
+          required
+          placeholder="Specific instructions — what to do, any constraints, and what 'done' looks like…"
+          className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+        />
+        {task.agent_result && (
+          <div className="rounded-lg border border-border bg-background p-2 text-xs text-muted">
+            <span className="font-medium text-foreground">Last result: </span>
+            {task.agent_result}
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          {task.agent_status && (
+            <button
+              type="submit"
+              formAction={async (fd) => {
+                await unassignTask(fd);
+                onClose();
+              }}
+              className="rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-foreground/5"
+            >
+              Unassign
+            </button>
+          )}
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-foreground/5"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:opacity-90"
+            >
+              <Bot size={13} /> Assign to agent
             </button>
           </div>
         </div>
