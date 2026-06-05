@@ -36,7 +36,11 @@ export async function completeTask(formData: FormData) {
   if (!id) return;
   await getSupabase()
     .from("tasks_items")
-    .update({ status: "done", completed_at: new Date().toISOString() })
+    .update({
+      status: "done",
+      completed_at: new Date().toISOString(),
+      completion_note: str(formData.get("completion_note")),
+    })
     .eq("id", id);
   revalidatePath("/tasks");
 }

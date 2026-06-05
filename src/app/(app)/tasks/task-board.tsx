@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Circle,
+  CheckCircle2,
   Plus,
+  Pencil,
   Sparkles,
   Clock,
   User2,
@@ -27,6 +29,7 @@ import {
   setPriority,
   archiveTask,
   reopenTask,
+  updateTask,
 } from "./actions";
 
 const NOW_CAP = 5;
@@ -173,6 +176,11 @@ function FlatList({ tasks, view }: { tasks: TaskWithContact[]; view: string }) {
                   : shortDate(t.updated_at)}
               </span>
             </div>
+            {t.completion_note && (
+              <p className="mt-0.5 text-xs italic text-muted">
+                — {t.completion_note}
+              </p>
+            )}
           </div>
           <form action={reopenTask}>
             <input type="hidden" name="id" value={t.id} />
@@ -269,19 +277,24 @@ function Collapsed({
 }
 
 function TaskRow({ task }: { task: TaskWithContact }) {
+  const [mode, setMode] = useState<"view" | "completing" | "editing">("view");
+
+  if (mode === "completing")
+    return <CompletingRow task={task} onUndo={() => setMode("view")} />;
+  if (mode === "editing")
+    return <EditRow task={task} onClose={() => setMode("view")} />;
+
   const ds = task.due_date ? dueStatus(task.due_date) : null;
   return (
     <li className="flex items-start gap-3 px-3 py-2.5">
-      <form action={completeTask} className="pt-0.5">
-        <input type="hidden" name="id" value={task.id} />
-        <button
-          type="submit"
-          title="Mark done"
-          className="flex text-muted transition-colors hover:text-accent"
-        >
-          <Circle size={18} />
-        </button>
-      </form>
+      <button
+        type="button"
+        onClick={() => setMode("completing")}
+        title="Mark done"
+        className="flex pt-0.5 text-muted transition-colors hover:text-accent"
+      >
+        <Circle size={18} />
+      </button>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -325,6 +338,14 @@ function TaskRow({ task }: { task: TaskWithContact }) {
 
       <LaneSelect task={task} />
 
+      <button
+        type="button"
+        onClick={() => setMode("editing")}
+        title="Edit"
+        className="flex pt-0.5 text-muted/60 transition-colors hover:text-foreground"
+      >
+        <Pencil size={14} />
+      </button>
       <form action={archiveTask}>
         <input type="hidden" name="id" value={task.id} />
         <button
@@ -334,6 +355,115 @@ function TaskRow({ task }: { task: TaskWithContact }) {
         >
           <Archive size={15} />
         </button>
+      </form>
+    </li>
+  );
+}
+
+// Checking off doesn't hide the task — it flips to this confirming state with
+// a gentle flash + an optional posterity note. The DB write (and the actual
+// hide) only happens when you submit (Enter or Done); an empty note is fine.
+function CompletingRow({
+  task,
+  onUndo,
+}: {
+  task: TaskWithContact;
+  onUndo: () => void;
+}) {
+  return (
+    <li className="task-completing px-3 py-2.5">
+      <form action={completeTask} className="flex items-start gap-3">
+        <input type="hidden" name="id" value={task.id} />
+        <CheckCircle2
+          size={18}
+          className="check-pop mt-0.5 shrink-0 text-green-500"
+        />
+        <div className="min-w-0 flex-1">
+          <span className="text-sm text-muted line-through">{task.title}</span>
+          <div className="note-reveal mt-1.5 flex items-center gap-2">
+            <input
+              name="completion_note"
+              autoFocus
+              placeholder="Optional note for posterity — e.g. “Jon declined the offer”"
+              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+            />
+            <button
+              type="button"
+              onClick={onUndo}
+              className="rounded-lg px-2 py-1.5 text-xs text-muted hover:bg-foreground/5"
+            >
+              Undo
+            </button>
+            <button
+              type="submit"
+              className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </form>
+    </li>
+  );
+}
+
+function EditRow({
+  task,
+  onClose,
+}: {
+  task: TaskWithContact;
+  onClose: () => void;
+}) {
+  return (
+    <li className="px-3 py-3">
+      <form
+        action={async (fd) => {
+          await updateTask(fd);
+          onClose();
+        }}
+        className="flex flex-col gap-2"
+      >
+        <input type="hidden" name="id" value={task.id} />
+        <input
+          name="title"
+          defaultValue={task.title}
+          required
+          autoFocus
+          className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+        />
+        <textarea
+          name="details"
+          defaultValue={task.details ?? ""}
+          rows={2}
+          placeholder="Details"
+          className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+        />
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            Due
+            <input
+              type="date"
+              name="due_date"
+              defaultValue={task.due_date ?? ""}
+              className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+            />
+          </label>
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-foreground/5"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:opacity-90"
+            >
+              Save
+            </button>
+          </div>
+        </div>
       </form>
     </li>
   );

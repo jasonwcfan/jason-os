@@ -107,6 +107,7 @@ export type Task = {
   priority_reason: string | null;
   groomed_at: string | null;
   completed_at: string | null;
+  completion_note: string | null;
   created_at: string;
   updated_at: string;
 };
