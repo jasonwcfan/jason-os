@@ -94,7 +94,7 @@ update tasks_items set priority='now',priority_reason='Due tomorrow; blocks PayP
 
 **Assign a task to an agent, or check assignment results**
 ```sql
--- assign (dispatcher does ONE turn within ~15 min, then sets agent_status='review').
+-- assign (dispatcher does ONE turn within ~1 min, then sets agent_status='review').
 -- Say in the instructions if you only want pre-work, e.g. 'Draft X then hand back to me':
 update tasks_items set agent_status='assigned', agent_instructions='<what to do; note pre-work vs full>', assigned_at=now() where id='<id>';
 -- tasks waiting on Jason's review:
@@ -121,7 +121,7 @@ where id='<canonical contact id>';
 - **granola-processor** (every 2h): Granola meeting transcripts → CRM meeting-interactions + tasks. Classifies sales/customer vs internal vs hiring vs investor.
 - **task-backlog-groomer** (~7:38am daily): de-dupes, archives stale, cancels dead, escalates, enforces the Now≤5 cap, writes `priority_reason`, and emits Jason's morning digest.
 - **Vercel cron** captures Granola meetings into `granola_queue` every 30 min.
-- **agent-dispatcher** (every 15 min): does ONE agent turn on each assigned task. It infers whether Jason wants PRE-WORK (do part, hand back) or the FULL task, does the work, then sets `agent_status='review'` (**never** 'done' — only Jason marks a task done) with a summary in `agent_result`. Jason then either marks the task done or re-assigns with feedback for another turn. Always-on managed runtime (works even with his laptop closed).
+- **agent-dispatcher** (every minute): does ONE agent turn on each assigned task. It infers whether Jason wants PRE-WORK (do part, hand back) or the FULL task, does the work, then sets `agent_status='review'` (**never** 'done' — only Jason marks a task done) with a summary in `agent_result`. Jason then either marks the task done or re-assigns with feedback for another turn. Always-on managed runtime (works even with his laptop closed).
 
 So new leads, logged meetings, and action items appear on their own. **Your role is the human-in-the-loop layer**: answering Jason's questions, capturing what he tells you, curating priorities, and surfacing what matters.
 
