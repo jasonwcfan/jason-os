@@ -12,7 +12,8 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/login") ||
     pathname.startsWith("/api/cron") ||
-    pathname.startsWith("/api/calendar") // token-authed iCal feed
+    pathname.startsWith("/api/calendar") || // token-authed iCal feed
+    pathname.startsWith("/api/mcp") // bearer-authed MCP server
   ) {
     return NextResponse.next();
   }
