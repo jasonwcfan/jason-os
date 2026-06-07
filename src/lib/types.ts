@@ -114,6 +114,7 @@ export type Task = {
   agent_log_url: string | null;
   assigned_at: string | null;
   agent_finished_at: string | null;
+  position: number;
   created_at: string;
   updated_at: string;
 };

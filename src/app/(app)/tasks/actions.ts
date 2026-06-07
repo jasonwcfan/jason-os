@@ -107,6 +107,21 @@ export async function unassignTask(formData: FormData) {
   revalidatePath("/tasks");
 }
 
+// Reorder / move a task: set its lane and its position within that lane.
+// Called from drag-and-drop (plain args, not a form).
+export async function reorderTask(
+  id: string,
+  priority: TaskLane,
+  position: number,
+) {
+  if (!id) return;
+  await getSupabase()
+    .from("tasks_items")
+    .update({ priority, position })
+    .eq("id", id);
+  revalidatePath("/tasks");
+}
+
 export async function updateTask(formData: FormData) {
   const id = str(formData.get("id"));
   if (!id) return;

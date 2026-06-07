@@ -14,7 +14,14 @@ export function RealtimeRefresh() {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const bump = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => router.refresh(), 250); // coalesce bursts
+      timer = setTimeout(() => {
+        // don't yank the list out from under an in-progress drag
+        if (typeof window !== "undefined" && (window as { __josDragging?: boolean }).__josDragging) {
+          bump();
+          return;
+        }
+        router.refresh();
+      }, 250); // coalesce bursts
     };
 
     const channel = supabaseBrowser

@@ -24,9 +24,7 @@ export default async function TasksPage({
 
   query =
     view === "open"
-      ? query
-          .order("due_date", { ascending: true, nullsFirst: false })
-          .order("created_at", { ascending: true })
+      ? query.order("position", { ascending: true }).order("created_at", { ascending: true })
       : query.order("updated_at", { ascending: false });
 
   const { data } = await query;
