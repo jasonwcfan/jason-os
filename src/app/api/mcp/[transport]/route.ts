@@ -290,14 +290,21 @@ const handler = createMcpHandler(
   { basePath: "/api/mcp", maxDuration: 60 },
 );
 
-// Bearer-token gate (MCP clients send Authorization: Bearer <MCP_TOKEN>).
+// Auth gate. Accepts the token either as `Authorization: Bearer <MCP_TOKEN>`
+// (Claude Code CLI / clients that support custom headers) OR as a `?key=`
+// query param (for clients like Claude Desktop whose connector UI only takes
+// a URL — the secret URL is the auth, same model as the iCal feed).
 async function authed(req: Request) {
   const token = process.env.MCP_TOKEN;
-  if (token && req.headers.get("authorization") !== `Bearer ${token}`) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401,
-      headers: { "content-type": "application/json" },
-    });
+  if (token) {
+    const fromHeader = req.headers.get("authorization") === `Bearer ${token}`;
+    const fromQuery = new URL(req.url).searchParams.get("key") === token;
+    if (!fromHeader && !fromQuery) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
+    }
   }
   return handler(req);
 }
