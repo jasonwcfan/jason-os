@@ -1,5 +1,5 @@
 ---
-name: planning
+name: strategy
 description: Jason Fan's strategic thinking & planning partner for Finic — deep research, first-principles strategy, and maintaining the company's source-of-truth direction. Use when Jason wants to think through company or product strategy, make or revisit a strategic decision, pressure-test an idea, do deep market/competitor/customer research, or review what's been decided vs. parked. The strategy brain of jason.os.
 ---
 
