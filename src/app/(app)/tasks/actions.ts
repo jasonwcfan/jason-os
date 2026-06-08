@@ -122,6 +122,57 @@ export async function reorderTask(
   revalidatePath("/tasks");
 }
 
+// Snooze a Now/Next task: park it in "later" until `until` (ISO timestamp),
+// remembering which lane to restore it to. The wake-snoozed cron flips it back
+// once the time passes. Only now/next tasks are snoozable. Plain args (called
+// from the client, not a form).
+const SNOOZABLE: TaskLane[] = ["now", "next"];
+export async function snoozeTask(id: string, until: string) {
+  if (!id || !until) return;
+  const sb = getSupabase();
+  const { data: t } = await sb
+    .from("tasks_items")
+    .select("priority, snooze_from_priority")
+    .eq("id", id)
+    .maybeSingle();
+  if (!t) return;
+  // If already snoozed, keep the original lane; else the current lane must qualify.
+  const from = (t.snooze_from_priority ?? t.priority) as TaskLane;
+  if (!SNOOZABLE.includes(from)) return;
+  await sb
+    .from("tasks_items")
+    .update({
+      priority: "later",
+      snoozed_until: until,
+      snooze_from_priority: from,
+      priority_reason: "Snoozed", // marks it so the groomer leaves it be
+    })
+    .eq("id", id);
+  revalidatePath("/tasks");
+}
+
+// Wake a snoozed task now: restore it to its original lane immediately.
+export async function unsnoozeTask(id: string) {
+  if (!id) return;
+  const sb = getSupabase();
+  const { data: t } = await sb
+    .from("tasks_items")
+    .select("snooze_from_priority")
+    .eq("id", id)
+    .maybeSingle();
+  const back = ((t?.snooze_from_priority as TaskLane) ?? "next") as TaskLane;
+  await sb
+    .from("tasks_items")
+    .update({
+      priority: back,
+      snoozed_until: null,
+      snooze_from_priority: null,
+      priority_reason: null,
+    })
+    .eq("id", id);
+  revalidatePath("/tasks");
+}
+
 export async function updateTask(formData: FormData) {
   const id = str(formData.get("id"));
   if (!id) return;

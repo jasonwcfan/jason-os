@@ -63,7 +63,7 @@ const handler = createMcpHandler(
         let q = getSupabase()
           .from("tasks_items")
           .select(
-            "id,title,status,priority,position,due_date,agent_status,agent_result,contact:crm_contacts(id,name)",
+            "id,title,status,priority,position,due_date,snoozed_until,snooze_from_priority,agent_status,agent_result,contact:crm_contacts(id,name)",
           )
           .eq("status", status ?? "open")
           .order("position", { ascending: true })
@@ -173,6 +173,59 @@ const handler = createMcpHandler(
           })
           .eq("id", id);
         return ok(error ? { error: error.message } : { assigned: id });
+      },
+    );
+
+    server.tool(
+      "task_snooze",
+      "Snooze a Now or Next task: parks it in 'later' until `until`, then a server cron auto-restores it to its original lane. Only now/next tasks can be snoozed. `until` is an ISO 8601 timestamp (include the timezone offset, e.g. 2026-06-09T14:00:00-07:00).",
+      { id: z.string(), until: z.string() },
+      async ({ id, until }) => {
+        const sb = getSupabase();
+        const { data: t } = await sb
+          .from("tasks_items")
+          .select("priority, snooze_from_priority")
+          .eq("id", id)
+          .maybeSingle();
+        if (!t) return ok({ error: "task not found" });
+        const from = (t.snooze_from_priority ?? t.priority) as string;
+        if (from !== "now" && from !== "next")
+          return ok({ error: "only now/next tasks can be snoozed" });
+        const { error } = await sb
+          .from("tasks_items")
+          .update({
+            priority: "later",
+            snoozed_until: new Date(until).toISOString(),
+            snooze_from_priority: from,
+            priority_reason: "Snoozed",
+          })
+          .eq("id", id);
+        return ok(error ? { error: error.message } : { snoozed: id, until });
+      },
+    );
+
+    server.tool(
+      "task_unsnooze",
+      "Wake a snoozed task now: restore it to its original lane immediately.",
+      { id: z.string() },
+      async ({ id }) => {
+        const sb = getSupabase();
+        const { data: t } = await sb
+          .from("tasks_items")
+          .select("snooze_from_priority")
+          .eq("id", id)
+          .maybeSingle();
+        const back = (t?.snooze_from_priority as string) ?? "next";
+        const { error } = await sb
+          .from("tasks_items")
+          .update({
+            priority: back,
+            snoozed_until: null,
+            snooze_from_priority: null,
+            priority_reason: null,
+          })
+          .eq("id", id);
+        return ok(error ? { error: error.message } : { woke: id });
       },
     );
 

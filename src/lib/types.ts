@@ -114,6 +114,10 @@ export type Task = {
   agent_log_url: string | null;
   assigned_at: string | null;
   agent_finished_at: string | null;
+  // Snooze: a now/next task parked in "later" until snoozed_until, after which a
+  // server cron restores it to snooze_from_priority. Both null when not snoozed.
+  snoozed_until: string | null;
+  snooze_from_priority: TaskLane | null;
   position: number;
   created_at: string;
   updated_at: string;

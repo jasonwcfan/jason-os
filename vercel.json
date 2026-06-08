@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/granola-poll",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/wake-snoozed",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

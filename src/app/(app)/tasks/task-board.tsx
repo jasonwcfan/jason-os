@@ -27,6 +27,7 @@ import {
   Bot,
   Sparkles,
   Clock,
+  AlarmClock,
   User2,
   Archive,
   RotateCcw,
@@ -52,6 +53,8 @@ import {
   assignTask,
   unassignTask,
   reorderTask,
+  snoozeTask,
+  unsnoozeTask,
 } from "./actions";
 
 const NOW_CAP = 5;
@@ -125,7 +128,7 @@ function DndBoard({ tasks }: { tasks: TaskWithContact[] }) {
 
   // re-sync from the server unless a drag is in progress
   const sig = tasks
-    .map((t) => `${t.id}:${t.priority}:${t.position}:${t.title}:${t.agent_status}:${t.due_date}`)
+    .map((t) => `${t.id}:${t.priority}:${t.position}:${t.title}:${t.agent_status}:${t.due_date}:${t.snoozed_until}`)
     .join("|");
   useEffect(() => {
     if (!draggingRef.current) setLanes(group(tasks));
@@ -321,7 +324,7 @@ function Lane({
 
 function SortableTaskRow({ task }: { task: TaskWithContact }) {
   const [mode, setMode] = useState<
-    "view" | "completing" | "editing" | "assigning"
+    "view" | "completing" | "editing" | "assigning" | "snoozing"
   >("view");
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, disabled: mode !== "view" });
@@ -344,9 +347,15 @@ function SortableTaskRow({ task }: { task: TaskWithContact }) {
         {mode === "assigning" && (
           <AssignForm task={task} onClose={() => setMode("view")} />
         )}
+        {mode === "snoozing" && (
+          <SnoozeForm task={task} onClose={() => setMode("view")} />
+        )}
       </li>
     );
   }
+
+  const canSnooze =
+    task.priority === "now" || task.priority === "next" || !!task.snoozed_until;
 
   const ds = task.due_date ? dueStatus(task.due_date) : null;
   return (
@@ -408,13 +417,31 @@ function SortableTaskRow({ task }: { task: TaskWithContact }) {
               <User2 size={11} /> {task.contact.name}
             </Link>
           )}
-          {task.priority_reason && (
-            <span className="italic opacity-80">{task.priority_reason}</span>
+          {task.snoozed_until ? (
+            <span className="inline-flex items-center gap-1 text-indigo-500">
+              <AlarmClock size={11} /> snoozed · {snoozeLabel(task.snoozed_until)}
+            </span>
+          ) : (
+            task.priority_reason && (
+              <span className="italic opacity-80">{task.priority_reason}</span>
+            )
           )}
         </div>
       </div>
 
       <LaneSelect task={task} />
+      {canSnooze && (
+        <button
+          type="button"
+          onClick={() => setMode("snoozing")}
+          title={task.snoozed_until ? "Snoozed — change or wake" : "Snooze"}
+          className={`flex pt-0.5 transition-colors hover:text-foreground ${
+            task.snoozed_until ? "text-indigo-500" : "text-muted/60"
+          }`}
+        >
+          <AlarmClock size={15} />
+        </button>
+      )}
       <button
         type="button"
         onClick={() => setMode("assigning")}
@@ -484,6 +511,118 @@ function CompletingForm({
           </div>
         </div>
       </form>
+    </div>
+  );
+}
+
+function snoozeLabel(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function SnoozeForm({
+  task,
+  onClose,
+}: {
+  task: TaskWithContact;
+  onClose: () => void;
+}) {
+  const [custom, setCustom] = useState("");
+  const go = (at: Date) => {
+    void snoozeTask(task.id, at.toISOString());
+    onClose();
+  };
+
+  const now = new Date();
+  const plusHours = (h: number) => new Date(now.getTime() + h * 3600e3);
+  const evening = (() => {
+    const x = new Date(now);
+    x.setHours(18, 0, 0, 0);
+    if (x <= now) x.setDate(x.getDate() + 1);
+    return x;
+  })();
+  const tomorrow9 = (() => {
+    const x = new Date(now);
+    x.setDate(x.getDate() + 1);
+    x.setHours(9, 0, 0, 0);
+    return x;
+  })();
+  const nextWeek = (() => {
+    const x = new Date(now);
+    const add = ((8 - x.getDay()) % 7) || 7; // days until next Monday
+    x.setDate(x.getDate() + add);
+    x.setHours(9, 0, 0, 0);
+    return x;
+  })();
+  const presets: [string, Date][] = [
+    ["1 hour", plusHours(1)],
+    ["3 hours", plusHours(3)],
+    ["This evening", evening],
+    ["Tomorrow 9 AM", tomorrow9],
+    ["Next week", nextWeek],
+  ];
+
+  return (
+    <div className="px-3 py-3">
+      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+        <AlarmClock size={15} className="text-indigo-500" />
+        {task.snoozed_until ? "Re-snooze until…" : "Snooze until…"}
+      </div>
+      {task.snoozed_until && (
+        <div className="mb-2 flex items-center gap-2 text-xs text-muted">
+          <span>💤 Currently snoozed until {snoozeLabel(task.snoozed_until)}</span>
+          <button
+            type="button"
+            onClick={() => {
+              void unsnoozeTask(task.id);
+              onClose();
+            }}
+            className="rounded-md border border-border px-2 py-1 hover:bg-foreground/5"
+          >
+            Wake now
+          </button>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1.5">
+        {presets.map(([label, at]) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => go(at)}
+            title={snoozeLabel(at.toISOString())}
+            className="rounded-lg border border-border px-2.5 py-1 text-xs transition-colors hover:border-accent hover:text-accent"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          type="datetime-local"
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+        />
+        <button
+          type="button"
+          disabled={!custom}
+          onClick={() => custom && go(new Date(custom))}
+          className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-accent-fg hover:opacity-90 disabled:opacity-40"
+        >
+          Snooze
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-auto rounded-lg px-3 py-1 text-xs text-muted hover:bg-foreground/5"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
