@@ -77,7 +77,7 @@ const handler = createMcpHandler(
 
     server.tool(
       "task_create",
-      "Create a task. lane defaults to 'next'. Set by='me' when Jason asked for it (even verbally), 'agent' when you inferred it autonomously. Check tasks_list for duplicates first.",
+      "Create a task. lane defaults to 'next'. Set by='me' when Jason asked for it (even verbally), 'agent' when you inferred it autonomously. Check tasks_list for duplicates first. If the task comes from an email or meeting, CHECK ITS TIMESTAMP first — don't create tasks from stale (e.g. weeks/months-old) messages unless they're clearly still actionable today; old threads are usually already handled or dead.",
       {
         title: z.string(),
         lane: z.enum(LANES).optional(),

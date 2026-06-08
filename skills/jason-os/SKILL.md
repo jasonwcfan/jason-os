@@ -18,6 +18,7 @@ If the server isn't connected in your environment, ask Jason to add the **jason.
 - **Be autonomous.** Unblock yourself with your *other* tools before asking. Missing an email / title / company? Search Gmail or Amplemarket and find it. Only go to Jason for a genuine decision, true ambiguity, a risky/irreversible action, or truly unfindable info. Prefer doing the whole job in one go.
 - **`by` (created_by):** Jason asked for it, even verbally → `by:'me'`; you inferred it yourself → `by:'agent'`.
 - **Dedup before creating** — tasks: check `tasks_list`; contacts: `contacts_search` by email.
+- **Check recency before making a task from an email/meeting.** Read the message/meeting **timestamp first.** A thread from weeks or months ago is almost always already handled or dead — don't manufacture a task from a stale email unless it's *clearly* still live and actionable today. When unsure, skip it (or surface it to Jason) rather than create stale noise. Newer ≠ automatically actionable either, but old = default-skip.
 - **Suppression is absolute** — never re-add or auto-touch a suppressed person (`contact_suppress` to add one).
 - **Task lanes = now · next · later · someday** (time horizon). `now` = today, capped ~5. Be conservative reordering; don't churn priorities; respect what Jason set by hand. `task_reorder` sets lane + position.
 - **Agent review loop:** assigning a task (`task_assign`) makes an agent do ONE turn, then return it in `review`. Agents **never** mark a task done — Jason does. Iterate by re-assigning with feedback.
