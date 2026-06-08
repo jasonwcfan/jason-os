@@ -8,20 +8,30 @@ export const dynamic = "force-dynamic";
 export default async function CrmPage() {
   const sb = getSupabase();
 
-  const [{ data: contactsData }, { count: dueCount }] = await Promise.all([
-    sb
-      .from("crm_contacts")
-      .select("*, company:crm_companies(id,name)")
-      .order("last_interaction_at", { ascending: false, nullsFirst: false }),
-    sb
-      .from("tasks_items")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "open")
-      .not("contact_id", "is", null)
-      .lte("due_date", new Date().toISOString().slice(0, 10)),
-  ]);
+  const [{ data: contactsData }, { count: dueCount }, { data: suppRows }] =
+    await Promise.all([
+      sb
+        .from("crm_contacts")
+        .select("*, company:crm_companies(id,name)")
+        .order("last_interaction_at", { ascending: false, nullsFirst: false }),
+      sb
+        .from("tasks_items")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "open")
+        .not("contact_id", "is", null)
+        .lte("due_date", new Date().toISOString().slice(0, 10)),
+      sb.from("crm_suppressed").select("email"),
+    ]);
 
-  const contacts = (contactsData ?? []) as ContactWithCompany[];
+  const suppressedEmails = new Set(
+    (suppRows ?? []).map((r) => (r.email as string).toLowerCase()),
+  );
+  const contacts = ((contactsData ?? []) as ContactWithCompany[]).map((c) => ({
+    ...c,
+    suppressed: [c.email, ...(c.alt_emails ?? [])].some(
+      (e) => e != null && suppressedEmails.has(e.toLowerCase()),
+    ),
+  }));
 
   return (
     <div>

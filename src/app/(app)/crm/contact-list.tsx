@@ -8,14 +8,28 @@ import { relativeTime } from "@/lib/format";
 import { Avatar, PageHeader, StrengthDots, TagChip } from "@/components/ui";
 import { createContact } from "./actions";
 
-export function ContactList({ contacts }: { contacts: ContactWithCompany[] }) {
+export function ContactList({
+  contacts,
+}: {
+  contacts: (ContactWithCompany & { suppressed?: boolean })[];
+}) {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
+  const [showSuppressed, setShowSuppressed] = useState(false);
+
+  const suppressedCount = useMemo(
+    () => contacts.filter((c) => c.suppressed).length,
+    [contacts],
+  );
+  const visible = useMemo(
+    () => contacts.filter((c) => showSuppressed || !c.suppressed),
+    [contacts, showSuppressed],
+  );
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return contacts;
-    return contacts.filter((c) => {
+    if (!needle) return visible;
+    return visible.filter((c) => {
       const hay = [
         c.name,
         c.email,
@@ -29,13 +43,13 @@ export function ContactList({ contacts }: { contacts: ContactWithCompany[] }) {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [q, contacts]);
+  }, [q, visible]);
 
   return (
     <div>
       <PageHeader
         title="CRM"
-        subtitle={`${contacts.length} contact${contacts.length === 1 ? "" : "s"}`}
+        subtitle={`${contacts.length - suppressedCount} contact${contacts.length - suppressedCount === 1 ? "" : "s"}`}
         action={
           <button
             onClick={() => setAdding((v) => !v)}
@@ -62,6 +76,15 @@ export function ContactList({ contacts }: { contacts: ContactWithCompany[] }) {
           />
         </div>
 
+        {suppressedCount > 0 && (
+          <button
+            onClick={() => setShowSuppressed((v) => !v)}
+            className="mb-4 text-xs text-muted hover:text-foreground"
+          >
+            {showSuppressed ? "Hide" : "Show"} {suppressedCount} suppressed
+          </button>
+        )}
+
         {filtered.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted">
             {contacts.length === 0
@@ -81,6 +104,11 @@ export function ContactList({ contacts }: { contacts: ContactWithCompany[] }) {
                     <div className="flex items-center gap-2">
                       <span className="truncate font-medium">{c.name}</span>
                       <StrengthDots value={c.relationship_strength} />
+                      {c.suppressed && (
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                          suppressed
+                        </span>
+                      )}
                     </div>
                     <div className="truncate text-sm text-muted">
                       {[c.title, c.company?.name].filter(Boolean).join(" · ") ||
