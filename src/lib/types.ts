@@ -61,21 +61,6 @@ export type Interaction = {
   created_at: string;
 };
 
-export type FollowUp = {
-  id: string;
-  contact_id: string | null;
-  due_date: string;
-  note: string | null;
-  status: "pending" | "done";
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type FollowUpWithContact = FollowUp & {
-  contact: Pick<Contact, "id" | "name"> | null;
-};
-
 // ---- Tasks module ----
 
 export const TASK_LANES = ["now", "next", "later", "someday"] as const;

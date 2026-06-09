@@ -21,7 +21,7 @@ export const MODULES: ModuleDef[] = [
     href: "/crm",
     icon: Users,
     enabled: true,
-    description: "People, companies, interactions, and follow-ups",
+    description: "People, companies, and interactions",
   },
   {
     key: "tasks",

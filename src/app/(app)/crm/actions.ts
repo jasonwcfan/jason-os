@@ -169,33 +169,6 @@ export async function logInteraction(formData: FormData) {
   revalidatePath("/crm");
 }
 
-export async function createFollowUp(formData: FormData) {
-  const contact_id = str(formData.get("contact_id"));
-  const due_date = str(formData.get("due_date"));
-  if (!due_date) return;
-
-  await getSupabase().from("crm_follow_ups").insert({
-    contact_id,
-    due_date,
-    note: str(formData.get("note")),
-  });
-
-  if (contact_id) revalidatePath(`/crm/contacts/${contact_id}`);
-  revalidatePath("/crm/follow-ups");
-}
-
-export async function completeFollowUp(formData: FormData) {
-  const id = str(formData.get("id"));
-  if (!id) return;
-  await getSupabase()
-    .from("crm_follow_ups")
-    .update({ status: "done", completed_at: new Date().toISOString() })
-    .eq("id", id);
-  revalidatePath("/crm/follow-ups");
-  const contact_id = str(formData.get("contact_id"));
-  if (contact_id) revalidatePath(`/crm/contacts/${contact_id}`);
-}
-
 // Tasks linked to a contact, created/completed from the CRM contact page.
 // (The old CRM "follow-ups" concept was merged into the Tasks module.)
 export async function createContactTask(formData: FormData) {

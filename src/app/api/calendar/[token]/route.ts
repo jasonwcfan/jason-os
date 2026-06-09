@@ -1,9 +1,11 @@
 import { getSupabase } from "@/lib/supabase";
 
-// A private iCal feed of upcoming reminders (open tasks + pending follow-ups
-// with a due date). Subscribe to it once on your phone; the calendar app
-// fires the native alerts. Token in the path is the auth (no cookie — calendar
-// clients can't log in), so /api/calendar is excluded from the password gate.
+// A private iCal feed of jason.os tasks that have a due_date — there is no
+// separate "reminders" concept; a task's due_date IS its calendar reminder.
+// Shows open, not-yet-past tasks; completing or clearing a date drops it on the
+// next client refresh. Subscribe once on your phone and the calendar app fires
+// the native alerts. Token in the path is the auth (no cookie — calendar clients
+// can't log in), so /api/calendar is excluded from the password gate.
 
 export const dynamic = "force-dynamic";
 
@@ -90,10 +92,10 @@ export async function GET(
   const ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//jason.os//reminders//EN",
+    "PRODID:-//jason.os//tasks//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    "X-WR-CALNAME:jason.os reminders",
+    "X-WR-CALNAME:jason.os tasks",
     "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
     "X-PUBLISHED-TTL:PT1H",
     ...events,

@@ -77,7 +77,7 @@ const handler = createMcpHandler(
 
     server.tool(
       "task_create",
-      "Create a task. lane defaults to 'next'. Set by='me' when Jason asked for it (even verbally), 'agent' when you inferred it autonomously. Check tasks_list for duplicates first. If the task comes from an email or meeting, CHECK ITS TIMESTAMP first — don't create tasks from stale (e.g. weeks/months-old) messages unless they're clearly still actionable today; old threads are usually already handled or dead.",
+      "Create a task. lane defaults to 'next'. Set by='me' when Jason asked for it (even verbally), 'agent' when you inferred it autonomously. Check tasks_list for duplicates first. If the task comes from an email or meeting, CHECK ITS TIMESTAMP first — don't create tasks from stale (e.g. weeks/months-old) messages unless they're clearly still actionable today; old threads are usually already handled or dead. due_date (YYYY-MM-DD) is optional and is the reminder: set one only if the task genuinely has a date it must happen by — it'll appear on Jason's calendar.",
       {
         title: z.string(),
         lane: z.enum(LANES).optional(),
@@ -106,12 +106,12 @@ const handler = createMcpHandler(
 
     server.tool(
       "task_update",
-      "Update a task's title, details, due_date and/or lane.",
+      "Update a task's title, details, due_date and/or lane. A due_date is the ONLY reminder mechanism — setting one places the task on Jason's subscribed calendar (date is YYYY-MM-DD). Not every task needs one. Curate dates actively: set, adjust, or CLEAR them (pass due_date: null to remove) so the calendar reflects reality.",
       {
         id: z.string(),
         title: z.string().optional(),
         details: z.string().optional(),
-        due_date: z.string().optional(),
+        due_date: z.string().nullable().optional(),
         lane: z.enum(LANES).optional(),
       },
       async ({ id, title, details, due_date, lane }) => {
