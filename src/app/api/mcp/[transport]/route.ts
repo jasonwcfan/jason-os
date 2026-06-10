@@ -178,29 +178,41 @@ const handler = createMcpHandler(
 
     server.tool(
       "task_snooze",
-      "Snooze a Now or Next task: parks it in 'later' until `until`, then a server cron auto-restores it to its original lane. Only now/next tasks can be snoozed. `until` is an ISO 8601 timestamp (include the timezone offset, e.g. 2026-06-09T14:00:00-07:00).",
+      "Snooze a Now or Next task: hides it in 'later' until `until`, then a server cron auto-restores it to its original lane. This is separate from due_date: snooze = 'when I want to see it again' (board triage, not on the calendar); due_date = the deadline/calendar reminder. A snoozed task with a due_date STILL shows its calendar reminder. Snooze can't outlast the deadline — if the task has a due_date, the wake is clamped to that date (and snoozing is refused if it's already due). Only now/next tasks can be snoozed. `until` is an ISO 8601 timestamp with offset (e.g. 2026-06-09T14:00:00-07:00).",
       { id: z.string(), until: z.string() },
       async ({ id, until }) => {
         const sb = getSupabase();
         const { data: t } = await sb
           .from("tasks_items")
-          .select("priority, snooze_from_priority")
+          .select("priority, snooze_from_priority, due_date")
           .eq("id", id)
           .maybeSingle();
         if (!t) return ok({ error: "task not found" });
         const from = (t.snooze_from_priority ?? t.priority) as string;
         if (from !== "now" && from !== "next")
           return ok({ error: "only now/next tasks can be snoozed" });
+        // Clamp the wake to the due date; refuse if it's already due.
+        let wake = new Date(until);
+        if (t.due_date) {
+          const maxWake = new Date(`${t.due_date}T12:00:00Z`);
+          if (wake > maxWake) wake = maxWake;
+        }
+        if (wake.getTime() <= Date.now())
+          return ok({
+            error: "task is due now/today — not snoozing (a deadline overrides a snooze)",
+          });
         const { error } = await sb
           .from("tasks_items")
           .update({
             priority: "later",
-            snoozed_until: new Date(until).toISOString(),
+            snoozed_until: wake.toISOString(),
             snooze_from_priority: from,
             priority_reason: "Snoozed",
           })
           .eq("id", id);
-        return ok(error ? { error: error.message } : { snoozed: id, until });
+        return ok(
+          error ? { error: error.message } : { snoozed: id, until: wake.toISOString() },
+        );
       },
     );
 

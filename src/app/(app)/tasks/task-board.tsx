@@ -354,8 +354,14 @@ function SortableTaskRow({ task }: { task: TaskWithContact }) {
     );
   }
 
+  // Already-snoozed tasks always show the control (to wake / re-snooze). A fresh
+  // snooze is offered for now/next tasks that aren't already due (snoozing past a
+  // deadline is pointless — a due task should stay visible).
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const dueNowOrPast = !!task.due_date && task.due_date <= todayStr;
   const canSnooze =
-    task.priority === "now" || task.priority === "next" || !!task.snoozed_until;
+    !!task.snoozed_until ||
+    ((task.priority === "now" || task.priority === "next") && !dueNowOrPast);
 
   const ds = task.due_date ? dueStatus(task.due_date) : null;
   return (
@@ -572,6 +578,12 @@ function SnoozeForm({
         <AlarmClock size={15} className="text-indigo-500" />
         {task.snoozed_until ? "Re-snooze until…" : "Snooze until…"}
       </div>
+      {task.due_date && (
+        <p className="mb-2 text-xs text-muted">
+          Due {shortDate(task.due_date)} — its calendar reminder still fires; snooze
+          won&apos;t push past the due date.
+        </p>
+      )}
       {task.snoozed_until && (
         <div className="mb-2 flex items-center gap-2 text-xs text-muted">
           <span>💤 Currently snoozed until {snoozeLabel(task.snoozed_until)}</span>

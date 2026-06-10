@@ -127,23 +127,39 @@ export async function reorderTask(
 // once the time passes. Only now/next tasks are snoozable. Plain args (called
 // from the client, not a form).
 const SNOOZABLE: TaskLane[] = ["now", "next"];
+
+// A snooze can't outlast the deadline. Clamp the wake to ~early morning (PT) of
+// the due date so the task always resurfaces in time to act, before its 9am
+// calendar reminder. Returns null if that moment has already passed (the task
+// is effectively due now — don't bury it).
+function clampWakeToDue(until: string, dueDate: string | null): string | null {
+  let wake = new Date(until);
+  if (dueDate) {
+    const maxWake = new Date(`${dueDate}T12:00:00Z`); // ~4–5am PT on the due date
+    if (wake > maxWake) wake = maxWake;
+  }
+  return wake.getTime() > Date.now() ? wake.toISOString() : null;
+}
+
 export async function snoozeTask(id: string, until: string) {
   if (!id || !until) return;
   const sb = getSupabase();
   const { data: t } = await sb
     .from("tasks_items")
-    .select("priority, snooze_from_priority")
+    .select("priority, snooze_from_priority, due_date")
     .eq("id", id)
     .maybeSingle();
   if (!t) return;
   // If already snoozed, keep the original lane; else the current lane must qualify.
   const from = (t.snooze_from_priority ?? t.priority) as TaskLane;
   if (!SNOOZABLE.includes(from)) return;
+  const wake = clampWakeToDue(until, t.due_date as string | null);
+  if (!wake) return; // due now/today — keep it visible rather than snooze it away
   await sb
     .from("tasks_items")
     .update({
       priority: "later",
-      snoozed_until: until,
+      snoozed_until: wake,
       snooze_from_priority: from,
       priority_reason: "Snoozed", // marks it so the groomer leaves it be
     })
