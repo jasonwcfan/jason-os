@@ -57,36 +57,49 @@ const handler = createMcpHandler(
         status: z.enum(["open", "done", "archived", "cancelled"]).optional(),
         lane: z.enum(LANES).optional(),
         contact_id: z.string().optional(),
+        tag: z.string().optional(),
         limit: z.number().optional(),
       },
-      async ({ status, lane, contact_id, limit }) => {
+      async ({ status, lane, contact_id, tag, limit }) => {
         let q = getSupabase()
           .from("tasks_items")
           .select(
-            "id,title,status,priority,position,due_date,snoozed_until,snooze_from_priority,agent_status,agent_result,contact:crm_contacts(id,name)",
+            "id,title,status,priority,position,due_date,snoozed_until,snooze_from_priority,tags,agent_status,agent_result,contact:crm_contacts(id,name)",
           )
           .eq("status", status ?? "open")
           .order("position", { ascending: true })
           .limit(limit ?? 200);
         if (lane) q = q.eq("priority", lane);
         if (contact_id) q = q.eq("contact_id", contact_id);
+        if (tag) q = q.contains("tags", [tag]);
         const { data, error } = await q;
         return ok(error ? { error: error.message } : data);
       },
     );
 
     server.tool(
+      "task_tags",
+      "List the current task tag vocabulary (open tasks) with usage counts, most-used first. Call this BEFORE tagging so you reuse existing tags (e.g. 'PayPal POC') instead of coining near-duplicate variants.",
+      {},
+      async () => {
+        const { data, error } = await getSupabase().rpc("task_tag_counts");
+        return ok(error ? { error: error.message } : data);
+      },
+    );
+
+    server.tool(
       "task_create",
-      "Create a task. lane defaults to 'next'. Set by='me' when Jason asked for it (even verbally), 'agent' when you inferred it autonomously. Check tasks_list for duplicates first. If the task comes from an email or meeting, CHECK ITS TIMESTAMP first — don't create tasks from stale (e.g. weeks/months-old) messages unless they're clearly still actionable today; old threads are usually already handled or dead. due_date (YYYY-MM-DD) is optional and is the reminder: set one only if the task genuinely has a date it must happen by — it'll appear on Jason's calendar.",
+      "Create a task. lane defaults to 'next'. Set by='me' when Jason asked for it (even verbally), 'agent' when you inferred it autonomously. Check tasks_list for duplicates first. If the task comes from an email or meeting, CHECK ITS TIMESTAMP first — don't create tasks from stale (e.g. weeks/months-old) messages unless they're clearly still actionable today; old threads are usually already handled or dead. due_date (YYYY-MM-DD) is optional and is the reminder: set one only if the task genuinely has a date it must happen by — it'll appear on Jason's calendar. tags = higher-level project/goal labels (e.g. 'PayPal POC', 'fundraising'); reuse existing ones via task_tags rather than coining variants.",
       {
         title: z.string(),
         lane: z.enum(LANES).optional(),
         due_date: z.string().optional(),
         details: z.string().optional(),
         contact_id: z.string().optional(),
+        tags: z.array(z.string()).optional(),
         by: z.enum(["me", "agent"]).optional(),
       },
-      async ({ title, lane, due_date, details, contact_id, by }) => {
+      async ({ title, lane, due_date, details, contact_id, tags, by }) => {
         const { data, error } = await getSupabase()
           .from("tasks_items")
           .insert({
@@ -95,6 +108,7 @@ const handler = createMcpHandler(
             due_date: due_date ?? null,
             details: details ?? null,
             contact_id: contact_id ?? null,
+            tags: tags ?? [],
             created_by: by ?? "me",
             origin: "mcp",
           })
@@ -106,20 +120,22 @@ const handler = createMcpHandler(
 
     server.tool(
       "task_update",
-      "Update a task's title, details, due_date and/or lane. A due_date is the ONLY reminder mechanism — setting one places the task on Jason's subscribed calendar (date is YYYY-MM-DD). Not every task needs one. Curate dates actively: set, adjust, or CLEAR them (pass due_date: null to remove) so the calendar reflects reality.",
+      "Update a task's title, details, due_date, lane and/or tags. A due_date is the ONLY reminder mechanism — setting one places the task on Jason's subscribed calendar (date is YYYY-MM-DD). Not every task needs one. Curate dates actively: set, adjust, or CLEAR them (pass due_date: null to remove) so the calendar reflects reality. tags REPLACES the full tag set (pass the complete desired array; [] clears) — higher-level project/goal labels; reuse the existing vocabulary via task_tags.",
       {
         id: z.string(),
         title: z.string().optional(),
         details: z.string().optional(),
         due_date: z.string().nullable().optional(),
         lane: z.enum(LANES).optional(),
+        tags: z.array(z.string()).optional(),
       },
-      async ({ id, title, details, due_date, lane }) => {
+      async ({ id, title, details, due_date, lane, tags }) => {
         const patch: Record<string, unknown> = {};
         if (title !== undefined) patch.title = title;
         if (details !== undefined) patch.details = details;
         if (due_date !== undefined) patch.due_date = due_date;
         if (lane !== undefined) patch.priority = lane;
+        if (tags !== undefined) patch.tags = tags;
         const { error } = await getSupabase()
           .from("tasks_items")
           .update(patch)

@@ -86,6 +86,7 @@ export type Task = {
   priority: TaskLane;
   due_date: string | null;
   contact_id: string | null;
+  tags: string[];
   created_by: "me" | "agent";
   origin: string;
   origin_detail: string | null;

@@ -423,6 +423,14 @@ function SortableTaskRow({ task }: { task: TaskWithContact }) {
               <User2 size={11} /> {task.contact.name}
             </Link>
           )}
+          {task.tags?.map((tg) => (
+            <span
+              key={tg}
+              className="inline-flex items-center rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent"
+            >
+              {tg}
+            </span>
+          ))}
           {task.snoozed_until ? (
             <span className="inline-flex items-center gap-1 text-indigo-500">
               <AlarmClock size={11} /> snoozed · {snoozeLabel(task.snoozed_until)}
@@ -639,6 +647,58 @@ function SnoozeForm({
   );
 }
 
+// Lightweight chip editor: type + Enter/comma to add, × or Backspace to remove.
+// Serialized into a hidden "tags" field as JSON for the server action.
+function TagsField({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (t: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+  const add = (raw: string) => {
+    const t = raw.trim();
+    if (t && !value.includes(t)) onChange([...value, t]);
+    setInput("");
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
+      {value.map((t) => (
+        <span
+          key={t}
+          className="inline-flex items-center gap-1 rounded-md bg-accent/10 px-1.5 py-0.5 text-xs text-accent"
+        >
+          {t}
+          <button
+            type="button"
+            onClick={() => onChange(value.filter((x) => x !== t))}
+            className="leading-none text-accent/70 hover:text-accent"
+            aria-label={`Remove ${t}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            add(input);
+          } else if (e.key === "Backspace" && !input && value.length) {
+            onChange(value.slice(0, -1));
+          }
+        }}
+        onBlur={() => add(input)}
+        placeholder={value.length ? "Add tag…" : "Tag by project / goal…"}
+        className="min-w-[10ch] flex-1 bg-transparent text-sm outline-none"
+      />
+    </div>
+  );
+}
+
 function EditForm({
   task,
   onClose,
@@ -646,6 +706,7 @@ function EditForm({
   task: TaskWithContact;
   onClose: () => void;
 }) {
+  const [tagList, setTagList] = useState<string[]>(task.tags ?? []);
   return (
     <div className="px-3 py-3">
       <form
@@ -656,6 +717,7 @@ function EditForm({
         className="flex flex-col gap-2"
       >
         <input type="hidden" name="id" value={task.id} />
+        <input type="hidden" name="tags" value={JSON.stringify(tagList)} />
         <input
           name="title"
           defaultValue={task.title}
@@ -670,6 +732,10 @@ function EditForm({
           placeholder="Details"
           className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-accent"
         />
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          Tags
+          <TagsField value={tagList} onChange={setTagList} />
+        </label>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs text-muted">
             Due
@@ -932,11 +998,13 @@ function FlatList({ tasks, view }: { tasks: TaskWithContact[]; view: string }) {
 }
 
 function QuickAdd({ onClose }: { onClose: () => void }) {
+  const [tagList, setTagList] = useState<string[]>([]);
   return (
     <form
       action={createTask}
       className="mb-5 flex flex-col gap-3 rounded-xl border border-border bg-surface p-4"
     >
+      <input type="hidden" name="tags" value={JSON.stringify(tagList)} />
       <input
         name="title"
         placeholder="What needs doing?"
@@ -944,6 +1012,7 @@ function QuickAdd({ onClose }: { onClose: () => void }) {
         required
         className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
       />
+      <TagsField value={tagList} onChange={setTagList} />
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-muted">
           Lane

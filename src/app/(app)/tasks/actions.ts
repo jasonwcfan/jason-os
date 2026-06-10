@@ -15,6 +15,17 @@ function lane(v: FormDataEntryValue | null): TaskLane {
   return s && (LANES as string[]).includes(s) ? (s as TaskLane) : "next";
 }
 
+// Tags arrive from the UI as a JSON array in a hidden field.
+function tags(v: FormDataEntryValue | null): string[] {
+  try {
+    const a = JSON.parse(String(v ?? "[]"));
+    if (!Array.isArray(a)) return [];
+    return [...new Set(a.map((x) => String(x).trim()).filter(Boolean))];
+  } catch {
+    return [];
+  }
+}
+
 // Created from the UI ⇒ created_by 'me'. (Agents create via SQL with
 // created_by='agent' unless Jason explicitly asked, per the module rules.)
 export async function createTask(formData: FormData) {
@@ -25,6 +36,7 @@ export async function createTask(formData: FormData) {
     details: str(formData.get("details")),
     priority: lane(formData.get("priority")),
     due_date: str(formData.get("due_date")),
+    tags: tags(formData.get("tags")),
     created_by: "me",
     origin: "manual",
   });
@@ -198,6 +210,7 @@ export async function updateTask(formData: FormData) {
       title: str(formData.get("title")) ?? "Untitled",
       details: str(formData.get("details")),
       due_date: str(formData.get("due_date")),
+      tags: tags(formData.get("tags")),
     })
     .eq("id", id);
   revalidatePath("/tasks");
