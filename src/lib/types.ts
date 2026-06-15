@@ -112,3 +112,17 @@ export type Task = {
 export type TaskWithContact = Task & {
   contact: Pick<Contact, "id" | "name"> | null;
 };
+
+// ---- Notes module ----
+// Standalone notes organized by project/goal tags (shared vocabulary with tasks).
+export type Note = {
+  id: string;
+  title: string;
+  body: string;
+  tags: string[];
+  pinned: boolean;
+  source: string;
+  external_id: string | null;
+  created_at: string;
+  updated_at: string;
+};

@@ -1,4 +1,4 @@
-import { Users, CheckSquare, type LucideIcon } from "lucide-react";
+import { Users, CheckSquare, FileText, type LucideIcon } from "lucide-react";
 
 // The life-OS module registry. The sidebar is generated from this list.
 // Adding a new module = add an entry here + its route group under app/(app).
@@ -30,5 +30,13 @@ export const MODULES: ModuleDef[] = [
     icon: CheckSquare,
     enabled: true,
     description: "Task & project management",
+  },
+  {
+    key: "notes",
+    label: "Notes",
+    href: "/notes",
+    icon: FileText,
+    enabled: true,
+    description: "Notes by project & goal",
   },
 ];

@@ -257,6 +257,83 @@ const handler = createMcpHandler(
       },
     );
 
+    // ---- Notes ----
+    server.tool(
+      "note_create",
+      "Create a standalone note (markdown body). Notes are organized by project/goal tags — the SAME vocabulary as tasks (see task_tags), so a note tagged 'PayPal POC' belongs to that project. Reuse existing tags rather than coining variants.",
+      {
+        title: z.string(),
+        body: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+      },
+      async ({ title, body, tags }) => {
+        const { data, error } = await getSupabase()
+          .from("notes")
+          .insert({ title, body: body ?? "", tags: tags ?? [], source: "mcp" })
+          .select("id")
+          .single();
+        return ok(error ? { error: error.message } : { created: data?.id });
+      },
+    );
+
+    server.tool(
+      "notes_search",
+      "Search notes by text (title/body) and/or tag; most-recent (pinned first) when no query. Returns metadata only — use note_get for the full body.",
+      {
+        query: z.string().optional(),
+        tag: z.string().optional(),
+        limit: z.number().optional(),
+      },
+      async ({ query, tag, limit }) => {
+        let q = getSupabase()
+          .from("notes")
+          .select("id,title,tags,pinned,updated_at")
+          .order("pinned", { ascending: false })
+          .order("updated_at", { ascending: false })
+          .limit(limit ?? 50);
+        if (query) q = q.or(`title.ilike.%${query}%,body.ilike.%${query}%`);
+        if (tag) q = q.contains("tags", [tag]);
+        const { data, error } = await q;
+        return ok(error ? { error: error.message } : data);
+      },
+    );
+
+    server.tool(
+      "note_get",
+      "Fetch one note (with full markdown body) by id.",
+      { id: z.string() },
+      async ({ id }) => {
+        const { data, error } = await getSupabase()
+          .from("notes")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+        return ok(error ? { error: error.message } : data);
+      },
+    );
+
+    server.tool(
+      "note_update",
+      "Update a note's title, body and/or tags. tags REPLACES the full set ([] clears).",
+      {
+        id: z.string(),
+        title: z.string().optional(),
+        body: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+      },
+      async ({ id, title, body, tags }) => {
+        const patch: Record<string, unknown> = {};
+        if (title !== undefined) patch.title = title;
+        if (body !== undefined) patch.body = body;
+        if (tags !== undefined) patch.tags = tags;
+        const { error } = await getSupabase()
+          .from("notes")
+          .update(patch)
+          .eq("id", id);
+        return ok(error ? { error: error.message } : { updated: id });
+      },
+    );
+
     // ---- CRM ----
     server.tool(
       "contacts_search",
