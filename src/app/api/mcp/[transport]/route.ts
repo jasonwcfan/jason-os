@@ -314,18 +314,20 @@ const handler = createMcpHandler(
 
     server.tool(
       "note_update",
-      "Update a note's title, body and/or tags. tags REPLACES the full set ([] clears).",
+      "Update a note's title, body and/or tags. tags REPLACES the full set ([] clears). Set mark_formatted:true when the notes-organizer routine has just reformatted the body — it stamps formatted_at so the note isn't reprocessed until edited again. Don't set mark_formatted for ordinary human/agent edits.",
       {
         id: z.string(),
         title: z.string().optional(),
         body: z.string().optional(),
         tags: z.array(z.string()).optional(),
+        mark_formatted: z.boolean().optional(),
       },
-      async ({ id, title, body, tags }) => {
+      async ({ id, title, body, tags, mark_formatted }) => {
         const patch: Record<string, unknown> = {};
         if (title !== undefined) patch.title = title;
         if (body !== undefined) patch.body = body;
         if (tags !== undefined) patch.tags = tags;
+        if (mark_formatted) patch.formatted_at = new Date().toISOString();
         const { error } = await getSupabase()
           .from("notes")
           .update(patch)

@@ -123,6 +123,7 @@ export type Note = {
   pinned: boolean;
   source: string;
   external_id: string | null;
+  formatted_at: string | null;
   created_at: string;
   updated_at: string;
 };
