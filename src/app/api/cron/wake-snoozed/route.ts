@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 
-// Restores snoozed tasks to their original lane once their snooze time passes.
-// Pure status flip — no AI — so it runs as a Vercel Cron (see vercel.json),
-// every few minutes. The DB function does a column-to-column update and the
-// emit_evt_tasks trigger live-refreshes any open UI.
+// Time-based task maintenance — pure status flips, no AI — run from Vercel Cron
+// (see vercel.json) every few minutes:
+//   1) wake_snoozed_tasks(): restore snoozed tasks once their snooze elapses or
+//      their due date arrives.
+//   2) escalate_due_tasks(): move any task into `now` on its due date.
+// The emit_evt_tasks trigger live-refreshes any open UI.
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -16,9 +18,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { data, error } = await getSupabase().rpc("wake_snoozed_tasks");
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json({ ok: true, woke: data ?? 0 });
+  const sb = getSupabase();
+  const { data: woke, error: e1 } = await sb.rpc("wake_snoozed_tasks");
+  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
+  const { data: escalated, error: e2 } = await sb.rpc("escalate_due_tasks");
+  if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
+  return NextResponse.json({ ok: true, woke: woke ?? 0, escalated: escalated ?? 0 });
 }

@@ -226,7 +226,11 @@ function DndBoard({ tasks }: { tasks: TaskWithContact[] }) {
         setLanes(group(tasks));
       }}
     >
-      <Lane lane="now" tasks={lanes.now} overCap={lanes.now.length > NOW_CAP} />
+      <Lane
+        lane="now"
+        tasks={lanes.now}
+        overCap={lanes.now.filter((t) => !t.due_date).length > NOW_CAP}
+      />
       <Lane lane="next" tasks={lanes.next} />
       <Lane
         lane="later"
@@ -286,15 +290,14 @@ function Lane({
             {m.emoji} {m.label}
           </h2>
           <span className="text-xs text-muted">{m.blurb}</span>
-          <span className="ml-auto text-xs text-muted">
-            {lane === "now" ? `${tasks.length}/${NOW_CAP}` : tasks.length}
-          </span>
+          <span className="ml-auto text-xs text-muted">{tasks.length}</span>
         </div>
       )}
 
       {overCap && (
         <p className="mb-2 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-600">
-          Over the daily cap of {NOW_CAP} — the groomer will trim this overnight.
+          Over the daily cap of {NOW_CAP} undated tasks — the groomer will trim the
+          extras. Due-dated tasks don&apos;t count toward the cap.
         </p>
       )}
 

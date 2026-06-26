@@ -70,7 +70,7 @@ export const LANE_META: Record<
   TaskLane,
   { label: string; emoji: string; blurb: string }
 > = {
-  now: { label: "Now", emoji: "🔴", blurb: "Today — max 5" },
+  now: { label: "Now", emoji: "🔴", blurb: "Today — max 5 undated" },
   next: { label: "Next", emoji: "🟡", blurb: "This week" },
   later: { label: "Later", emoji: "⚪", blurb: "Backlog" },
   someday: { label: "Someday", emoji: "💤", blurb: "Maybe / optional" },
